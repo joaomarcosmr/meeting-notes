@@ -6,6 +6,7 @@ const path = require('node:path');
 const { createTranscriptionQueue } = require('./queue');
 const { buildTranscript } = require('./transcript');
 const { transcribeSegment, summarize } = require('./openai');
+const { transcribeLocal } = require('./local-whisper');
 const { saveMeta, saveSummary, saveTranscript, readTranscript } = require('./history');
 
 function folderStamp(date) {
@@ -29,7 +30,8 @@ async function summarizeFolder({ folder, settings, apiKey, meta }) {
   return { id: path.basename(folder), summary, markdown, folder };
 }
 
-function createMeeting({ settings, apiKey, onProgress }) {
+// `local`: { cli, modelsDir } quando a transcrição é feita pelo whisper.cpp no Mac.
+function createMeeting({ settings, apiKey, local, onProgress }) {
   const startedAt = new Date();
   let folder = path.join(settings.notesDir, folderStamp(startedAt));
   // Duas gravações no mesmo minuto não podem cair na mesma pasta.
@@ -39,24 +41,26 @@ function createMeeting({ settings, apiKey, onProgress }) {
   const meta = { startedAt: startedAt.toISOString(), durationSec: null };
   saveMeta(folder, meta);
 
-  const queue = createTranscriptionQueue(
-    (segment, previous) =>
-      transcribeSegment({
-        apiKey,
-        model: settings.transcriptionModel,
-        language: settings.language,
-        audio: fs.readFileSync(segment.file),
-        fileName: path.basename(segment.file),
-        previousText: previous?.utterances.map((u) => u.text).join(' '),
-      }),
-    { onProgress },
-  );
+  const queue = createTranscriptionQueue((segment, previous) => {
+    const previousText = previous?.utterances.map((u) => u.text).join(' ');
+    if (local) {
+      return transcribeLocal({ ...local, language: settings.language, audioFile: segment.file, previousText });
+    }
+    return transcribeSegment({
+      apiKey,
+      model: settings.transcriptionModel,
+      language: settings.language,
+      audio: fs.readFileSync(segment.file),
+      fileName: path.basename(segment.file),
+      previousText,
+    });
+  }, { onProgress });
 
   let transcribed = false;
 
   // Cada trecho chega duas vezes: uma do microfone (você) e outra do áudio do sistema (os outros).
-  function addSegment({ index, startSec, source = 'mic', data }) {
-    const file = path.join(audioDir, `parte-${String(index + 1).padStart(3, '0')}-${source}.webm`);
+  function addSegment({ index, startSec, source = 'mic', format = 'webm', data }) {
+    const file = path.join(audioDir, `parte-${String(index + 1).padStart(3, '0')}-${source}.${format}`);
     fs.writeFileSync(file, Buffer.from(data));
     queue.push({ index, startSec, source, file });
   }
@@ -67,7 +71,7 @@ function createMeeting({ settings, apiKey, onProgress }) {
     const segments = await queue.drain();
     if (!segments.length) {
       fs.rmSync(folder, { recursive: true, force: true });
-      throw new Error('Nenhum áudio foi gravado.');
+      throw new Error('Não detectei nenhuma fala na gravação.');
     }
 
     saveTranscript(folder, buildTranscript(segments));

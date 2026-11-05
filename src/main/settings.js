@@ -6,6 +6,9 @@ const { app, safeStorage } = require('electron');
 const DEFAULTS = {
   userName: '',
   language: 'pt',
+  // 'local' = whisper.cpp no Mac (grátis, offline); 'openai' = API (separa os participantes).
+  transcriptionEngine: 'local',
+  whisperCliPath: '', // vazio = procura no Homebrew
   transcriptionModel: 'gpt-4o-transcribe-diarize',
   summaryModel: 'gpt-5-mini',
   captureSystemAudio: true,
@@ -59,6 +62,9 @@ function saveSettings(patch) {
   return getSettings();
 }
 
+// Onde ficam os modelos do whisper.cpp baixados pelo app.
+const modelsDir = () => path.join(app.getPath('userData'), 'models');
+
 function getApiKey() {
   const { encryptedApiKey } = readRaw();
   if (encryptedApiKey) {
@@ -71,4 +77,4 @@ function getApiKey() {
   return process.env.OPENAI_API_KEY || '';
 }
 
-module.exports = { getSettings, saveSettings, getApiKey };
+module.exports = { getSettings, saveSettings, getApiKey, modelsDir };

@@ -112,14 +112,24 @@
             <input name="captureSystemAudio" type="checkbox" />
             Gravar também o áudio do sistema (as outras pessoas da call)
           </label>
-          <div class="row">
-            <label>Modelo de transcrição
+          <fieldset class="engine">
+            <legend>Transcrição</legend>
+            <label class="check">
+              <input type="radio" name="transcriptionEngine" value="local" />
+              <span><b>No Mac (whisper.cpp)</b> — grátis e offline; separa você dos outros</span>
+            </label>
+            <label class="check">
+              <input type="radio" name="transcriptionEngine" value="openai" />
+              <span><b>OpenAI</b> — pago; separa também os participantes entre si</span>
+            </label>
+            <div id="local-status" class="local-status"></div>
+            <label id="openai-model-field">Modelo de transcrição da OpenAI
               <input name="transcriptionModel" type="text" />
             </label>
-            <label>Modelo do resumo
-              <input name="summaryModel" type="text" />
-            </label>
-          </div>
+          </fieldset>
+          <label>Modelo do resumo (OpenAI)
+            <input name="summaryModel" type="text" />
+          </label>
           <div class="row">
             <label>Idioma (ISO-639-1)
               <input name="language" type="text" maxlength="5" />

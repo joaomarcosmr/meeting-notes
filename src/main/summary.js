@@ -57,6 +57,7 @@ function buildMessages(transcript, { userName, startedAt } = {}) {
     'A transcrição foi gerada automaticamente e pode ter erros. Cada fala vem com quem falou:',
     `- "Você" é o usuário do app${name}: é o microfone dele, então tudo que "Você" diz foi dito por ele.`,
     '- "Participante A", "Participante B"... são as outras pessoas da call. As letras são atribuídas a cada bloco de 5 minutos e podem mudar entre blocos: use-as para separar falas próximas, não para identificar alguém ao longo da reunião inteira.',
+    '- "Participante" sem letra são as outras pessoas da call, sem separação entre elas: pode ser mais de uma pessoa.',
     '- "Pessoa A", "Pessoa B"... aparecem quando só o microfone foi gravado: aí não se sabe qual delas é o usuário.',
     '- Se "Você" repete quase igual a fala de um participante no mesmo instante, é eco da caixa de som captado pelo microfone: atribua a fala ao participante.',
     'Regras:',

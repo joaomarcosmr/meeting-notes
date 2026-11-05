@@ -316,3 +316,16 @@ input[type='text'], input[type='password'], select {
 
 .add-task { display: flex; gap: 8px; flex-direction: row; margin: 0 0 6px; }
 .add-task input { flex: 1; }
+
+fieldset.engine { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+fieldset.engine legend { font-size: 12px; font-weight: 600; padding: 0 4px; }
+fieldset.engine label.check { align-items: flex-start; }
+fieldset.engine label.check input { margin-top: 2px; }
+
+.local-status { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 8px; background: var(--surface); }
+.status-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.status-row > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.status-row small { color: var(--muted); overflow-wrap: anywhere; user-select: text; }
+.status-icon { width: 16px; text-align: center; font-weight: 700; color: var(--warn); }
+.status-row.ok .status-icon { color: #30a46c; }
+.status-row button { padding: 4px 10px; font-size: 12px; white-space: nowrap; }

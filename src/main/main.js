@@ -16,7 +16,8 @@ const {
   systemPreferences,
 } = require('electron');
 const { actionFromArgv } = require('./argv');
-const { getSettings, saveSettings, getApiKey } = require('./settings');
+const { getSettings, saveSettings, getApiKey, modelsDir } = require('./settings');
+const localWhisper = require('./local-whisper');
 const { createMeeting, summarizeFolder } = require('./meeting');
 const { formatClock } = require('./transcript');
 const history = require('./history');
@@ -157,6 +158,15 @@ async function startRecording({ show = true } = {}) {
     return;
   }
 
+  const local = settings.transcriptionEngine === 'local';
+  const status = local ? localWhisper.localStatus({ whisperCliPath: settings.whisperCliPath, modelsDir: modelsDir() }) : null;
+  if (local && !status.ready) {
+    showWindow();
+    const steps = localWhisper.missingSteps(status).join(' e ');
+    send('open-settings', { reason: `Para transcrever no Mac, ${steps}. Ou troque a transcrição para OpenAI.` });
+    return;
+  }
+
   const micOk = await systemPreferences.askForMediaAccess('microphone');
   if (!micOk) {
     showWindow();
@@ -169,6 +179,7 @@ async function startRecording({ show = true } = {}) {
   state.meeting = createMeeting({
     settings,
     apiKey,
+    local: local ? { cli: status.cli, modelsDir: modelsDir() } : null,
     onProgress: (progress) => broadcast('transcription-progress', progress),
   });
   state.recordingStartedAt = Date.now();
@@ -177,6 +188,7 @@ async function startRecording({ show = true } = {}) {
     segmentMinutes: settings.segmentMinutes,
     captureSystemAudio: settings.captureSystemAudio,
     micDeviceId: settings.micDeviceId,
+    toWav: local,
   });
   if (show) showWindow();
 }
@@ -276,6 +288,23 @@ ipcMain.handle('show-main', (_event, view) => {
 });
 // O ⚙︎ do painel abre o mesmo menu de antes.
 ipcMain.handle('tray:menu', () => tray.popUpContextMenu(buildTrayMenu()));
+
+// ---- Transcrição local (whisper.cpp) ---------------------------------------
+
+ipcMain.handle('local:status', () =>
+  localWhisper.localStatus({ whisperCliPath: getSettings().whisperCliPath, modelsDir: modelsDir() }),
+);
+
+const downloads = new Map(); // um download por modelo de cada vez
+ipcMain.handle('local:download', (_event, kind) => {
+  if (!downloads.has(kind)) {
+    const job = localWhisper
+      .downloadModel({ kind, modelsDir: modelsDir(), onProgress: (p) => broadcast('local:download-progress', p) })
+      .finally(() => downloads.delete(kind));
+    downloads.set(kind, job);
+  }
+  return downloads.get(kind).then(() => localWhisper.localStatus({ whisperCliPath: getSettings().whisperCliPath, modelsDir: modelsDir() }));
+});
 
 ipcMain.handle('toggle', (_event, options) => toggleRecording(options));
 ipcMain.handle('get-state', () => ({ phase: state.phase, startedAt: state.recordingStartedAt }));

@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('api', {
   onTasksChanged: on('tasks-changed'),
   onNavigate: on('navigate'),
   onPopoverShown: on('popover:shown'),
+  onDownloadProgress: on('local:download-progress'),
 
   // gravação
   sendSegment: (segment) => ipcRenderer.invoke('recorder:segment', segment),
@@ -36,6 +37,10 @@ contextBridge.exposeInMainWorld('api', {
   addTask: (descricao) => ipcRenderer.invoke('tasks:add', { descricao }),
   updateManualTask: (id, patch) => ipcRenderer.invoke('tasks:update-manual', { id, patch }),
   removeManualTask: (id) => ipcRenderer.invoke('tasks:remove-manual', { id }),
+
+  // transcrição local
+  localStatus: () => ipcRenderer.invoke('local:status'),
+  downloadModel: (kind) => ipcRenderer.invoke('local:download', kind),
 
   // navegação entre janelas
   openMeeting: (id) => ipcRenderer.invoke('open-meeting', id),

@@ -452,8 +452,89 @@ async function openSettings(reason) {
   $('settings-reason').textContent = reason || '';
   $('settings-reason').hidden = !reason;
   await fillMicrophones(settings.micDeviceId);
+  updateEngineFields();
   show('settings');
+  renderLocalStatus(await window.api.localStatus());
 }
+
+// ---- Transcrição local: status do whisper.cpp e dos modelos -----------------
+
+function updateEngineFields() {
+  const local = form.elements.transcriptionEngine.value === 'local';
+  $('local-status').hidden = !local;
+  $('openai-model-field').hidden = local;
+}
+
+for (const radio of form.elements.transcriptionEngine) radio.addEventListener('change', updateEngineFields);
+
+const gb = (bytes) => (bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${(bytes / 1e6).toFixed(1)} MB`);
+
+function statusRow(ok, title, detail, action) {
+  const row = el('div', undefined, ok ? 'status-row ok' : 'status-row');
+  row.append(el('span', ok ? '✓' : '✗', 'status-icon'));
+  const body = el('div');
+  body.append(el('b', title));
+  if (detail) body.append(el('small', detail));
+  row.append(body);
+  if (action) row.append(action);
+  return row;
+}
+
+function downloadButton(kind, label) {
+  const button = el('button', label);
+  button.type = 'button';
+  button.dataset.download = kind;
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    try {
+      renderLocalStatus(await window.api.downloadModel(kind));
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = label;
+      banner(`Download falhou: ${error.message}`);
+    }
+  });
+  return button;
+}
+
+function renderLocalStatus(status) {
+  const root = $('local-status');
+  root.replaceChildren();
+
+  const recheck = el('button', 'Verificar de novo');
+  recheck.type = 'button';
+  recheck.addEventListener('click', async () => renderLocalStatus(await window.api.localStatus()));
+  root.append(
+    statusRow(
+      Boolean(status.cli),
+      'whisper.cpp',
+      status.cli ? status.cli : 'Não instalado. No terminal, rode: brew install whisper-cpp',
+      status.cli ? null : recheck,
+    ),
+  );
+  root.append(
+    statusRow(
+      status.model.present,
+      'Modelo large-v3-turbo',
+      status.model.present ? status.model.path : `Necessário · ${gb(status.model.size)}`,
+      status.model.present ? null : downloadButton('model', `Baixar (${gb(status.model.size)})`),
+    ),
+  );
+  root.append(
+    statusRow(
+      status.vad.present,
+      'Detector de voz (VAD)',
+      status.vad.present ? status.vad.path : `Opcional, evita frases inventadas em silêncios · ${gb(status.vad.size)}`,
+      status.vad.present ? null : downloadButton('vad', `Baixar (${gb(status.vad.size)})`),
+    ),
+  );
+  if (status.ready) root.append(el('p', 'Pronto: as reuniões serão transcritas no seu Mac.', 'muted small'));
+}
+
+window.api.onDownloadProgress(({ kind, received, total }) => {
+  const button = document.querySelector(`[data-download="${kind}"]`);
+  if (button) button.textContent = `Baixando… ${Math.floor((received / total) * 100)}%`;
+});
 
 function leaveSettings() {
   if (viewBeforeSettings?.meeting) openMeeting(viewBeforeSettings.meeting);

@@ -4,9 +4,12 @@
 // (cada um é um .webm completo, com cabeçalho próprio), para que possam ser
 // transcritos enquanto a reunião ainda acontece.
 
+import { prepareSegment } from './wav.js';
+
 const MIME = 'audio/webm;codecs=opus';
 
-export async function createRecorder({ segmentMinutes, captureSystemAudio, micDeviceId, onSegment, onWarning }) {
+// `toWav`: a transcrição local (whisper.cpp) precisa de WAV; a da OpenAI aceita o .webm, menor.
+export async function createRecorder({ segmentMinutes, captureSystemAudio, micDeviceId, toWav, onSegment, onWarning }) {
   const mic = await navigator.mediaDevices.getUserMedia({
     audio: {
       deviceId: micDeviceId && micDeviceId !== 'default' ? { exact: micDeviceId } : undefined,
@@ -70,7 +73,17 @@ export async function createRecorder({ segmentMinutes, captureSystemAudio, micDe
       new Promise((resolve) => {
         recorder.onstop = async () => {
           const blob = new Blob(chunks, { type: MIME });
-          if (blob.size) await onSegment({ ...segment, source: lane.source, data: await blob.arrayBuffer() });
+          try {
+            // Trecho sem som nenhum (ex.: ninguém falou na call) não vale transcrição nem custo.
+            const prepared = blob.size ? await prepareSegment(context, blob, { toWav }) : { silent: true };
+            if (!prepared.silent) {
+              await onSegment({ ...segment, source: lane.source, data: prepared.data, format: prepared.format });
+            }
+          } catch (error) {
+            // Não perde o áudio: manda o original (fica salvo em disco mesmo que a transcrição falhe).
+            onWarning(`Falha ao converter um trecho de áudio: ${error.message}`);
+            await onSegment({ ...segment, source: lane.source, data: await blob.arrayBuffer(), format: 'webm' });
+          }
           resolve();
         };
       }),

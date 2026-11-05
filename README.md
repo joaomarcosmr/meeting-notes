@@ -9,13 +9,24 @@ App de menu bar para macOS (Electron) que **ouve a sua reunião** — seu microf
 - 💬 **O que foi discutido**, por tópico
 - ❓ **Perguntas em aberto**
 
+## Menu bar: suas tarefas a um clique
+
+O ícone de forma de onda na barra do Mac abre um painel com:
+
+- **todas as tarefas pendentes** (as suas destacadas; filtro "Só as minhas"), com o prazo e a reunião de origem — clicar no nome da reunião abre ela no histórico;
+- um campo para **adicionar tarefas à mão** (Enter), que ficam salvas em `tarefas.json` na pasta das notas;
+- o botão **Gravar reunião / Parar e resumir** (o cronômetro também aparece ao lado do ícone);
+- o **⚙︎**, que abre o menu de opções (gravar, abrir histórico, pasta de notas, configurações, sair) — o mesmo que aparece com clique direito no ícone.
+
+Concluir uma tarefa no painel ou na janela atualiza os dois na hora.
+
 ## Histórico
 
 A janela do app é o seu arquivo de reuniões:
 
 - **Barra lateral** com todas as reuniões (Hoje, Ontem, Últimos 7 dias, por mês), mostrando duração e tarefas pendentes, com **busca** (<kbd>⌘</kbd><kbd>F</kbd>) em títulos, tarefas, pontos e tópicos.
 - **Reunião aberta**: resumo completo, aba com a transcrição com marcação de tempo, botões para copiar o resumo em Markdown e abrir a pasta.
-- **Minhas tarefas**: todas as tarefas pendentes de todas as reuniões num só lugar (filtro "Só as minhas"). Marcar o checkbox conclui a tarefa e salva no arquivo.
+- **Minhas tarefas**: todas as tarefas pendentes de todas as reuniões, mais as adicionadas à mão, num só lugar (filtro "Só as minhas"). Marcar o checkbox conclui a tarefa e salva no arquivo.
 - Reuniões cujo resumo falhou aparecem como "sem resumo", com o botão **Gerar resumo agora**.
 
 Com a janela aberta o app aparece no Dock e no <kbd>⌘</kbd><kbd>Tab</kbd>; fechada, ele continua só na menu bar.
@@ -43,7 +54,7 @@ sistema (os outros) ─ MediaRecorder ─┘  uma trilha para cada
    [00:03:15] Você: deixa comigo, eu preparo até sexta
                                         │
                                         ▼
-            gpt-5 + Structured Outputs (JSON Schema) ─ resumo.md
+         gpt-5-mini + Structured Outputs (JSON Schema) ─ resumo.md
 ```
 
 ### Quem disse o quê
@@ -90,9 +101,9 @@ Arraste para `/Applications`. O comando `meeting` passa a abrir o app instalado 
 | `meeting start` / `meeting stop` | só inicia / só para |
 | `meeting show` | mostra a janela |
 | <kbd>⌘</kbd><kbd>⌥</kbd><kbd>⇧</kbd><kbd>M</kbd> | atalho global para gravar/parar (configurável) |
-| ícone ◎ na menu bar | gravar, parar, abrir pasta de notas, configurações |
+| ícone na menu bar | clique: painel de tarefas · clique direito: menu de opções |
 
-Durante a gravação o menu bar mostra `● 00:12:34`.
+Durante a gravação a menu bar mostra o cronômetro ao lado do ícone.
 
 Dica: dá para disparar o `meeting` pelo Raycast/Alfred ou por um atalho do app Atalhos ("Executar script de shell").
 
@@ -108,7 +119,7 @@ Dica: dá para disparar o `meeting` pelo Raycast/Alfred ou por um atalho do app 
 | Campo | Padrão |
 | --- | --- |
 | Modelo de transcrição | `gpt-4o-transcribe-diarize` (separa quem fala). `gpt-4o-transcribe` e `gpt-4o-mini-transcribe` também funcionam, mas sem identificar os participantes |
-| Modelo do resumo | `gpt-5` (qualquer modelo com Structured Outputs) |
+| Modelo do resumo | `gpt-5-mini` (barato e suficiente para extrair tarefas; `gpt-5` para resumos mais caprichados, `gpt-5-nano` para o mínimo de custo) |
 | Idioma | `pt` |
 | Áudio do sistema | ligado |
 | Manter áudio | desligado (o áudio só é apagado se tudo foi transcrito) |

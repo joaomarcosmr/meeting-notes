@@ -3,7 +3,9 @@
 //   resumo.json      resumo estruturado (+ `concluida` nas tarefas marcadas na interface)
 //   resumo.md        o mesmo resumo em Markdown, regenerado a cada mudança
 //   transcricao.md   transcrição com marcação de tempo
+// e, na raiz de notesDir, tarefas.json com as tarefas adicionadas à mão.
 
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { renderMarkdown } = require('./summary');
@@ -134,8 +136,57 @@ function updateTask(notesDir, id, index, patch) {
   return getMeeting(notesDir, id);
 }
 
+// ---- Tarefas adicionadas à mão (sempre suas) -------------------------------
+
+const MANUAL_FILE = 'tarefas.json';
+
+function readManualTasks(notesDir) {
+  return readJson(path.join(notesDir, MANUAL_FILE)) || [];
+}
+
+function writeManualTasks(notesDir, tasks) {
+  fs.mkdirSync(notesDir, { recursive: true });
+  fs.writeFileSync(path.join(notesDir, MANUAL_FILE), JSON.stringify(tasks, null, 2));
+}
+
+function addManualTask(notesDir, descricao) {
+  const text = String(descricao || '').trim();
+  if (!text) throw new Error('Escreva a tarefa.');
+  const task = { id: crypto.randomUUID(), descricao: text.slice(0, 500), concluida: false, criadaEm: new Date().toISOString() };
+  writeManualTasks(notesDir, [...readManualTasks(notesDir), task]);
+  return task;
+}
+
+function updateManualTask(notesDir, id, patch) {
+  const tasks = readManualTasks(notesDir);
+  const task = tasks.find((t) => t.id === id);
+  if (!task) throw new Error('Tarefa não encontrada.');
+  if ('concluida' in patch) task.concluida = Boolean(patch.concluida);
+  writeManualTasks(notesDir, tasks);
+  return task;
+}
+
+function removeManualTask(notesDir, id) {
+  writeManualTasks(notesDir, readManualTasks(notesDir).filter((t) => t.id !== id));
+}
+
+// Todas as tarefas pendentes: as adicionadas à mão primeiro, depois as das
+// reuniões, da mais nova para a mais antiga.
 function listOpenTasks(notesDir) {
-  return listMeetings(notesDir)
+  const manual = readManualTasks(notesDir)
+    .filter((t) => !t.concluida)
+    .map((t) => ({
+      ...t,
+      manual: true,
+      minha: true,
+      responsavel: null,
+      prazo: null,
+      meetingId: null,
+      meetingTitle: 'Adicionadas por você',
+      startedAt: t.criadaEm,
+    }));
+
+  const fromMeetings = listMeetings(notesDir)
     .filter((m) => m.tasksOpen)
     .flatMap((m) => {
       const summary = readJson(path.join(notesDir, m.id, 'resumo.json'));
@@ -143,6 +194,8 @@ function listOpenTasks(notesDir) {
         .map((task, index) => ({ ...task, index, meetingId: m.id, meetingTitle: m.titulo, startedAt: m.startedAt }))
         .filter((task) => !task.concluida);
     });
+
+  return [...manual, ...fromMeetings];
 }
 
 module.exports = {
@@ -156,4 +209,7 @@ module.exports = {
   getMeeting,
   updateTask,
   listOpenTasks,
+  addManualTask,
+  updateManualTask,
+  removeManualTask,
 };

@@ -157,7 +157,10 @@ function renderMeeting(tab) {
   selectTab(tab);
 }
 
+let currentTab = 'summary';
+
 function selectTab(tab) {
+  currentTab = tab;
   for (const button of document.querySelectorAll('.tab')) button.classList.toggle('active', button.dataset.tab === tab);
   $('meeting-summary').hidden = tab !== 'summary';
   $('meeting-transcript').hidden = tab !== 'transcript';
@@ -180,7 +183,7 @@ function section(title, items, render = (item) => el('li', item)) {
   return wrap;
 }
 
-function taskItem(task, onChange) {
+function taskItem(task, onChange, onRemove) {
   const li = el('li', undefined, 'task');
   li.classList.toggle('mine', Boolean(task.minha));
   li.classList.toggle('done', Boolean(task.concluida));
@@ -195,11 +198,18 @@ function taskItem(task, onChange) {
   if (meta) body.append(el('small', meta));
   label.append(box, body);
 
-  // A IA pode errar o dono da tarefa: um clique corrige.
-  const mine = el('button', task.minha ? 'Minha' : 'É minha?', 'mine-toggle');
-  mine.title = task.minha ? 'Clique se essa tarefa não é sua' : 'Clique para marcar como sua';
-  mine.addEventListener('click', () => onChange({ minha: !task.minha }));
-  li.append(label, mine);
+  li.append(label);
+  if (task.manual) {
+    const remove = el('button', 'Apagar', 'mine-toggle');
+    remove.addEventListener('click', onRemove);
+    li.append(remove);
+  } else {
+    // A IA pode errar o dono da tarefa: um clique corrige.
+    const mine = el('button', task.minha ? 'Minha' : 'É minha?', 'mine-toggle');
+    mine.title = task.minha ? 'Clique se essa tarefa não é sua' : 'Clique para marcar como sua';
+    mine.addEventListener('click', () => onChange({ minha: !task.minha }));
+    li.append(mine);
+  }
   return li;
 }
 
@@ -257,18 +267,27 @@ async function renderTasks() {
     root.append(el('p', onlyMine ? 'Nenhuma tarefa sua pendente. 🎉' : 'Nenhuma tarefa pendente. 🎉', 'muted'));
     return;
   }
-  let meetingId = null;
+  // Agrupa por reunião; as tarefas manuais (sem reunião) formam o próprio grupo.
+  let group;
   let list = null;
   for (const task of tasks) {
-    if (task.meetingId !== meetingId) {
-      meetingId = task.meetingId;
-      const heading = el('button', undefined, 'task-group');
-      heading.append(el('span', task.meetingTitle), el('small', formatWhen(task.startedAt)));
-      heading.addEventListener('click', () => openMeeting(task.meetingId));
+    const key = task.manual ? 'manual' : task.meetingId;
+    if (key !== group) {
+      group = key;
+      const heading = el(task.manual ? 'div' : 'button', undefined, 'task-group');
+      heading.append(el('span', task.meetingTitle));
+      if (!task.manual) {
+        heading.append(el('small', formatWhen(task.startedAt)));
+        heading.addEventListener('click', () => openMeeting(task.meetingId));
+      }
       list = el('ul');
       root.append(heading, list);
     }
-    list.append(taskItem(task, (patch) => changeTask(task.meetingId, task.index, patch)));
+    list.append(
+      task.manual
+        ? taskItem(task, (patch) => window.api.updateManualTask(task.id, patch), () => window.api.removeManualTask(task.id))
+        : taskItem(task, (patch) => changeTask(task.meetingId, task.index, patch)),
+    );
   }
 }
 
@@ -277,6 +296,27 @@ $('nav-tasks').addEventListener('click', async () => {
   await renderTasks();
 });
 $('only-mine').addEventListener('change', renderTasks);
+$('tasks-add-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const input = $('tasks-add-input');
+  if (!input.value.trim()) return;
+  await window.api.addTask(input.value);
+  input.value = '';
+});
+
+// Tarefas mudaram em outra janela (painel da menu bar) ou por uma reunião nova.
+window.api.onTasksChanged(async () => {
+  await refreshHistory();
+  if (currentView === 'meeting' && selected) {
+    selected = await window.api.getMeeting(selected.id);
+    renderMeeting(currentTab);
+  }
+});
+
+window.api.onNavigate(({ meetingId, view }) => {
+  if (meetingId) openMeeting(meetingId);
+  else if (view === 'tasks') $('nav-tasks').click();
+});
 
 // ---- Gravação -------------------------------------------------------------
 

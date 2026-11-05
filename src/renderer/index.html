@@ -77,8 +77,12 @@
       <section id="view-tasks" class="view" hidden>
         <header class="detail-header">
           <h1>Tarefas pendentes</h1>
-          <label class="check"><input id="only-mine" type="checkbox" checked /> Só as minhas</label>
+          <label class="check"><input id="only-mine" type="checkbox" /> Só as minhas</label>
         </header>
+        <form id="tasks-add-form" class="add-task">
+          <input id="tasks-add-input" type="text" placeholder="Adicionar tarefa…" autocomplete="off" maxlength="500" />
+          <button type="submit">Adicionar</button>
+        </form>
         <div id="tasks-list"></div>
       </section>
 

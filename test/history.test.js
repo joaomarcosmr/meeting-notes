@@ -76,3 +76,23 @@ test('history: corrigir "é minha" à mão e ignorar campos não editáveis', ()
   assert.equal(meeting.summary.tarefas[0].descricao, 'Revisar PR');
   assert.equal(history.listMeetings(notesDir)[0].myTasksOpen, 2);
 });
+
+test('history: tarefas manuais entram primeiro nas pendentes e somem ao concluir', () => {
+  const notesDir = fixture();
+  assert.throws(() => history.addManualTask(notesDir, '   '), /Escreva/);
+  const task = history.addManualTask(notesDir, '  Ligar para o contador ');
+  assert.equal(task.descricao, 'Ligar para o contador');
+
+  let open = history.listOpenTasks(notesDir);
+  assert.deepEqual(open[0], { ...task, manual: true, minha: true, responsavel: null, prazo: null,
+    meetingId: null, meetingTitle: 'Adicionadas por você', startedAt: task.criadaEm });
+  assert.equal(history.listMeetings(notesDir).length, 3); // tarefas.json não vira reunião
+
+  history.updateManualTask(notesDir, task.id, { concluida: true });
+  open = history.listOpenTasks(notesDir);
+  assert.ok(!open.some((t) => t.manual));
+
+  const other = history.addManualTask(notesDir, 'Outra');
+  history.removeManualTask(notesDir, other.id);
+  assert.ok(!history.listOpenTasks(notesDir).some((t) => t.id === other.id));
+});

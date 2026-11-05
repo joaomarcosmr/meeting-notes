@@ -313,3 +313,6 @@ input[type='text'], input[type='password'], select {
   background: var(--surface);
   color: var(--text);
 }
+
+.add-task { display: flex; gap: 8px; flex-direction: row; margin: 0 0 6px; }
+.add-task input { flex: 1; }

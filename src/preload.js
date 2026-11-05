@@ -16,12 +16,15 @@ contextBridge.exposeInMainWorld('api', {
   onMeetingError: on('meeting:error'),
   onError: on('error'),
   onOpenSettings: on('open-settings'),
+  onTasksChanged: on('tasks-changed'),
+  onNavigate: on('navigate'),
+  onPopoverShown: on('popover:shown'),
 
   // gravação
   sendSegment: (segment) => ipcRenderer.invoke('recorder:segment', segment),
   recorderStopped: () => ipcRenderer.invoke('recorder:stopped'),
   recorderFailed: (message) => ipcRenderer.invoke('recorder:failed', message),
-  toggle: () => ipcRenderer.invoke('toggle'),
+  toggle: (options) => ipcRenderer.invoke('toggle', options),
   getState: () => ipcRenderer.invoke('get-state'),
 
   // histórico
@@ -30,6 +33,14 @@ contextBridge.exposeInMainWorld('api', {
   listOpenTasks: () => ipcRenderer.invoke('history:tasks'),
   updateTask: (id, index, patch) => ipcRenderer.invoke('history:update-task', { id, index, patch }),
   summarizeMeeting: (id) => ipcRenderer.invoke('history:summarize', id),
+  addTask: (descricao) => ipcRenderer.invoke('tasks:add', { descricao }),
+  updateManualTask: (id, patch) => ipcRenderer.invoke('tasks:update-manual', { id, patch }),
+  removeManualTask: (id) => ipcRenderer.invoke('tasks:remove-manual', { id }),
+
+  // navegação entre janelas
+  openMeeting: (id) => ipcRenderer.invoke('open-meeting', id),
+  showMain: (view) => ipcRenderer.invoke('show-main', view),
+  showTrayMenu: () => ipcRenderer.invoke('tray:menu'),
 
   // diversos
   getSettings: () => ipcRenderer.invoke('settings:get'),

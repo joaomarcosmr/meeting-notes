@@ -1,0 +1,145 @@
+:root {
+  color-scheme: light dark;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --line: rgba(0, 0, 0, 0.1);
+  --field: rgba(255, 255, 255, 0.7);
+  --hover: rgba(0, 0, 0, 0.05);
+  --accent: #e5484d;
+  --mine: rgba(255, 200, 60, 0.18);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: 13px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #f2f2f7;
+    --muted: #98989f;
+    --line: rgba(255, 255, 255, 0.1);
+    --field: rgba(255, 255, 255, 0.07);
+    --hover: rgba(255, 255, 255, 0.06);
+    --mine: rgba(255, 200, 60, 0.12);
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+/* Translúcido sobre o vibrancy da janela, como os menus do macOS, mas com cor
+   própria: o texto continua legível mesmo onde o vibrancy não é aplicado. */
+html { background: transparent; }
+body { background: rgba(246, 246, 246, 0.82); }
+
+@media (prefers-color-scheme: dark) {
+  body { background: rgba(36, 36, 38, 0.82); }
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 10px;
+  color: var(--text);
+  overflow: hidden;
+  user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+header { display: flex; align-items: center; justify-content: space-between; }
+h1 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+
+.count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.count:empty { display: none; }
+
+.icon { font-size: 16px; padding: 2px 6px; color: var(--muted); }
+.icon:hover { background: var(--hover); color: var(--text); }
+
+.record {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border-radius: 8px;
+}
+
+.record .dot { width: 9px; height: 9px; border-radius: 50%; background: #fff; }
+.record.recording .dot { border-radius: 2px; animation: blink 1.2s ease-in-out infinite; }
+.record:disabled { opacity: 0.6; cursor: default; }
+
+@keyframes blink { 50% { opacity: 0.3; } }
+
+#add-input {
+  width: 100%;
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--field);
+  color: var(--text);
+  outline: none;
+}
+
+#add-input:focus { border-color: var(--accent); }
+
+.filter { display: flex; gap: 4px; }
+.filter button { padding: 3px 10px; color: var(--muted); font-size: 12px; }
+.filter button.active { background: var(--hover); color: var(--text); font-weight: 600; }
+
+#list { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px; list-style: none; }
+
+.empty { color: var(--muted); text-align: center; padding: 40px 10px; line-height: 1.5; white-space: pre-line; }
+
+.task {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 7px 8px;
+  border-radius: 7px;
+  transition: opacity 0.25s;
+}
+
+.task:hover { background: var(--hover); }
+.task.mine { background: var(--mine); }
+.task.leaving { opacity: 0; }
+.task input { margin-top: 2px; accent-color: var(--accent); }
+.task .body { flex: 1; min-width: 0; }
+.task .text { line-height: 1.35; overflow-wrap: anywhere; }
+.task .meta { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; font-size: 11px; color: var(--muted); }
+.task .meta button { padding: 0; font-size: 11px; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.task .meta button:hover { color: var(--text); }
+.task .remove { visibility: hidden; color: var(--muted); padding: 0 4px; font-size: 14px; }
+.task:hover .remove { visibility: visible; }
+
+footer { display: flex; justify-content: space-between; border-top: 1px solid var(--line); padding-top: 8px; }
+.link { color: var(--muted); font-size: 12px; padding: 4px 6px; }
+.link:hover { color: var(--text); background: var(--hover); }
+
+@media (prefers-reduced-motion: reduce) {
+  .record.recording .dot { animation: none; }
+  .task { transition: none; }
+}

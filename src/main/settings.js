@@ -7,7 +7,7 @@ const DEFAULTS = {
   userName: '',
   language: 'pt',
   transcriptionModel: 'gpt-4o-transcribe-diarize',
-  summaryModel: 'gpt-5',
+  summaryModel: 'gpt-5-mini',
   captureSystemAudio: true,
   micDeviceId: 'default',
   segmentMinutes: 5,
@@ -18,9 +18,9 @@ const DEFAULTS = {
 
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 
-// v2: o modelo padrão de transcrição passou a ser o com diarização (quem falou o quê).
-// Quem salvou as configurações com o padrão antigo ganha o novo automaticamente.
-const SETTINGS_VERSION = 2;
+// Quem salvou as configurações com um padrão antigo ganha o novo automaticamente:
+// v2: transcrição com diarização (quem falou o quê); v3: resumo com o gpt-5-mini (mais barato).
+const SETTINGS_VERSION = 3;
 
 function readRaw() {
   let raw;
@@ -29,9 +29,9 @@ function readRaw() {
   } catch {
     return {};
   }
-  if ((raw.settingsVersion || 1) < 2 && raw.transcriptionModel === 'gpt-4o-transcribe') {
-    delete raw.transcriptionModel;
-  }
+  const version = raw.settingsVersion || 1;
+  if (version < 2 && raw.transcriptionModel === 'gpt-4o-transcribe') delete raw.transcriptionModel;
+  if (version < 3 && raw.summaryModel === 'gpt-5') delete raw.summaryModel;
   return raw;
 }
 

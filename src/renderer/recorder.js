@@ -16,10 +16,18 @@ export async function createRecorder({ segmentMinutes, captureSystemAudio, micDe
   let display = null;
   if (captureSystemAudio) {
     try {
-      // O vídeo é exigido pelo getDisplayMedia, mas não é usado.
-      display = await navigator.mediaDevices.getDisplayMedia({
+      // O vídeo é exigido pelo getDisplayMedia, mas não é usado. Ele pode ficar
+      // pendurado para sempre (permissão de tela), então não pode segurar a gravação.
+      const request = navigator.mediaDevices.getDisplayMedia({
         audio: true,
         video: { width: 1, height: 1, frameRate: 1 },
+      });
+      display = await Promise.race([
+        request,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('o macOS não respondeu')), 4000)),
+      ]).catch((error) => {
+        request.then((late) => late.getTracks().forEach((t) => t.stop())).catch(() => {});
+        throw error;
       });
       const [systemTrack] = display.getAudioTracks();
       // Sem permissão o macOS entrega uma trilha já encerrada, sem erro nenhum.

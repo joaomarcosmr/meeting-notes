@@ -273,23 +273,28 @@ $('only-mine').addEventListener('change', renderTasks);
 
 // ---- Gravação -------------------------------------------------------------
 
-window.api.onRecorderStart(async (options) => {
+// Promise da inicialização: se o usuário parar enquanto ela ainda acontece, o stop espera.
+let starting = null;
+
+window.api.onRecorderStart((options) => {
   banner('');
-  try {
-    recorder = await createRecorder({
-      ...options,
-      onSegment: (segment) => window.api.sendSegment(segment),
-      onWarning: banner,
-    });
-  } catch (error) {
-    recorder = null;
-    await window.api.recorderFailed(`Não foi possível iniciar a gravação: ${error.message}`);
-    return;
-  }
-  $('sources').textContent = recorder.hasSystemAudio ? '🎙 Microfone + 🔊 áudio do sistema' : '🎙 Só microfone';
+  starting = (async () => {
+    try {
+      recorder = await createRecorder({
+        ...options,
+        onSegment: (segment) => window.api.sendSegment(segment),
+        onWarning: banner,
+      });
+      $('sources').textContent = recorder.hasSystemAudio ? '🎙 Microfone + 🔊 áudio do sistema' : '🎙 Só microfone';
+    } catch (error) {
+      recorder = null;
+      await window.api.recorderFailed(`Não foi possível iniciar a gravação: ${error.message}`);
+    }
+  })();
 });
 
 window.api.onRecorderStop(async () => {
+  await starting;
   if (recorder) await recorder.stop();
   recorder = null;
   await window.api.recorderStopped();

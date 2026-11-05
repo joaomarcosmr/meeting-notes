@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' mediastream: blob:"
+    />
+    <title>Meeting Notes</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="titlebar">
+      <span class="brand">Meeting Notes</span>
+      <button id="settings-button" class="icon-button" title="Configurações">⚙︎</button>
+    </header>
+
+    <div id="banner" class="banner" hidden></div>
+
+    <main>
+      <section id="view-idle" class="view center">
+        <button id="record-button" class="record-button" title="Gravar reunião"><span></span></button>
+        <h1>Pronto para ouvir</h1>
+        <p class="muted">Clique, use <kbd id="shortcut-hint"></kbd> ou rode <code>meeting</code> no terminal.</p>
+      </section>
+
+      <section id="view-recording" class="view center" hidden>
+        <div class="pulse"></div>
+        <div id="timer" class="timer">00:00:00</div>
+        <div class="meter"><div id="meter-fill"></div></div>
+        <p id="sources" class="muted"></p>
+        <p id="progress-live" class="muted small"></p>
+        <button id="stop-button" class="primary">Parar e resumir</button>
+      </section>
+
+      <section id="view-processing" class="view center" hidden>
+        <div class="spinner"></div>
+        <h1 id="processing-step">Processando…</h1>
+        <p id="progress" class="muted"></p>
+      </section>
+
+      <section id="view-result" class="view" hidden>
+        <article id="result"></article>
+        <div class="actions">
+          <button id="copy-button">Copiar resumo</button>
+          <button id="folder-button">Abrir pasta</button>
+          <button id="new-button" class="primary">Nova gravação</button>
+        </div>
+      </section>
+
+      <section id="view-error" class="view center" hidden>
+        <h1>Algo deu errado</h1>
+        <p id="error-message" class="muted"></p>
+        <div class="actions">
+          <button id="retry-button" class="primary">Tentar resumir de novo</button>
+          <button id="error-folder-button">Abrir pasta</button>
+          <button id="error-back-button">Voltar</button>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view" hidden>
+        <h1>Configurações</h1>
+        <p id="settings-reason" class="banner" hidden></p>
+        <form id="settings-form">
+          <label>Chave da API da OpenAI
+            <input name="apiKey" type="password" placeholder="sk-…" autocomplete="off" />
+            <small id="api-key-status" class="muted"></small>
+          </label>
+          <label>Seu nome (para identificar as suas tarefas)
+            <input name="userName" type="text" placeholder="João" />
+          </label>
+          <label>Microfone
+            <select name="micDeviceId"></select>
+          </label>
+          <label class="check">
+            <input name="captureSystemAudio" type="checkbox" />
+            Gravar também o áudio do sistema (as outras pessoas da call)
+          </label>
+          <div class="row">
+            <label>Modelo de transcrição
+              <input name="transcriptionModel" type="text" />
+            </label>
+            <label>Modelo do resumo
+              <input name="summaryModel" type="text" />
+            </label>
+          </div>
+          <div class="row">
+            <label>Idioma (ISO-639-1)
+              <input name="language" type="text" maxlength="5" />
+            </label>
+            <label>Atalho global
+              <input name="shortcut" type="text" />
+            </label>
+          </div>
+          <label>Pasta das notas
+            <input name="notesDir" type="text" />
+          </label>
+          <label class="check">
+            <input name="keepAudio" type="checkbox" />
+            Manter os arquivos de áudio depois de transcrever
+          </label>
+          <div class="actions">
+            <button type="button" id="settings-cancel">Cancelar</button>
+            <button type="submit" class="primary">Salvar</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

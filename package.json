@@ -1,0 +1,44 @@
+{
+  "name": "meeting-notes",
+  "productName": "Meeting Notes",
+  "version": "0.1.0",
+  "description": "App de menu bar para macOS que grava suas reuniões e gera resumo, tarefas e pontos importantes com a API da OpenAI.",
+  "main": "src/main/main.js",
+  "bin": {
+    "meeting": "bin/meeting.js"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/**/*.test.js\"",
+    "dist": "electron-builder --mac"
+  },
+  "author": "João Marcos",
+  "license": "MIT",
+  "build": {
+    "appId": "com.joaomarcos.meetingnotes",
+    "productName": "Meeting Notes",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg"
+      ],
+      "extendInfo": {
+        "LSUIElement": true,
+        "NSMicrophoneUsageDescription": "O Meeting Notes grava o microfone para transcrever suas reuniões.",
+        "NSAudioCaptureUsageDescription": "O Meeting Notes captura o áudio do sistema para ouvir os outros participantes da reunião.",
+        "NSScreenCaptureUsageDescription": "O Meeting Notes captura o áudio do sistema para ouvir os outros participantes da reunião."
+      }
+    }
+  },
+  "dependencies": {
+    "openai": "^6.49.0"
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  }
+}

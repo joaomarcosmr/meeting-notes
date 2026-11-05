@@ -16,8 +16,9 @@ const {
 } = require('electron');
 const { actionFromArgv } = require('./argv');
 const { getSettings, saveSettings, getApiKey } = require('./settings');
-const { createMeeting } = require('./meeting');
+const { createMeeting, summarizeFolder } = require('./meeting');
 const { formatClock } = require('./transcript');
+const history = require('./history');
 
 // `meeting` com o app já aberto abre uma segunda instância só para repassar o comando.
 if (!app.requestSingleInstanceLock()) {
@@ -31,7 +32,7 @@ let quitting = false;
 let trayTimer = null;
 
 // idle -> recording -> processing -> idle
-const state = { phase: 'idle', meeting: null, lastMeeting: null, recordingStartedAt: null };
+const state = { phase: 'idle', meeting: null, recordingStartedAt: null };
 
 function send(channel, payload) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
@@ -51,10 +52,11 @@ function showWindow() {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 420,
-    height: 600,
+    width: 1040,
+    height: 700,
+    minWidth: 760,
+    minHeight: 480,
     show: false,
-    resizable: true,
     fullscreenable: false,
     titleBarStyle: 'hiddenInset',
     title: 'Meeting Notes',
@@ -67,6 +69,9 @@ function createWindow() {
     },
   });
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  // Com a janela aberta o app aparece no Dock e no ⌘Tab; fechada, vive só na menu bar.
+  win.on('show', () => app.dock?.show());
+  win.on('hide', () => app.dock?.hide());
   win.on('close', (event) => {
     if (!quitting) {
       event.preventDefault();
@@ -141,11 +146,7 @@ async function deliver(promise) {
     new Notification({ title: 'Resumo da reunião pronto', body: result.summary.titulo }).show();
   } catch (error) {
     setPhase('idle');
-    send('meeting:error', {
-      message: error.message,
-      canRetry: Boolean(state.lastMeeting?.hasTranscript()),
-      folder: state.lastMeeting?.folder,
-    });
+    send('meeting:error', { message: error.message });
     showWindow();
   }
 }
@@ -159,7 +160,6 @@ ipcMain.handle('recorder:stopped', async () => {
   if (!meeting) return;
   const durationSec = (Date.now() - state.recordingStartedAt) / 1000;
   state.meeting = null;
-  state.lastMeeting = meeting;
   setPhase('processing', { step: 'Transcrevendo o final da reunião…' });
   await deliver(meeting.finish(durationSec));
 });
@@ -170,8 +170,23 @@ ipcMain.handle('recorder:failed', (_event, message) => {
   send('error', { message });
 });
 
-ipcMain.handle('meeting:retry-summary', () =>
-  deliver(Promise.resolve().then(() => state.lastMeeting.retrySummary())),
+// Resume (de novo) uma reunião do histórico que tem transcrição.
+ipcMain.handle('history:summarize', (_event, id) => {
+  if (state.phase !== 'idle') return;
+  const settings = getSettings();
+  return deliver(
+    Promise.resolve().then(() => {
+      const folder = history.meetingDir(settings.notesDir, id);
+      return summarizeFolder({ folder, settings, apiKey: getApiKey(), meta: history.readMeta(folder) });
+    }),
+  );
+});
+
+ipcMain.handle('history:list', () => history.listMeetings(getSettings().notesDir));
+ipcMain.handle('history:get', (_event, id) => history.getMeeting(getSettings().notesDir, id));
+ipcMain.handle('history:tasks', () => history.listOpenTasks(getSettings().notesDir));
+ipcMain.handle('history:set-task', (_event, { id, index, done }) =>
+  history.setTaskDone(getSettings().notesDir, id, index, done),
 );
 
 ipcMain.handle('toggle', () => toggleRecording());
@@ -212,7 +227,7 @@ function refreshTray() {
       state.phase === 'recording'
         ? { label: 'Parar e resumir', accelerator: shortcut, click: stopRecording }
         : { label: 'Gravar reunião', accelerator: shortcut, click: startRecording, enabled: state.phase === 'idle' },
-      { label: 'Mostrar janela', click: showWindow },
+      { label: 'Abrir histórico', click: showWindow },
       { label: 'Abrir pasta de notas', click: () => shell.openPath(getSettings().notesDir) },
       { label: 'Configurações…', click: () => { showWindow(); send('open-settings', {}); } },
       { type: 'separator' },

@@ -17,13 +17,21 @@ contextBridge.exposeInMainWorld('api', {
   onError: on('error'),
   onOpenSettings: on('open-settings'),
 
-  // chamadas para o processo principal
+  // gravação
   sendSegment: (segment) => ipcRenderer.invoke('recorder:segment', segment),
   recorderStopped: () => ipcRenderer.invoke('recorder:stopped'),
   recorderFailed: (message) => ipcRenderer.invoke('recorder:failed', message),
-  retrySummary: () => ipcRenderer.invoke('meeting:retry-summary'),
   toggle: () => ipcRenderer.invoke('toggle'),
   getState: () => ipcRenderer.invoke('get-state'),
+
+  // histórico
+  listMeetings: () => ipcRenderer.invoke('history:list'),
+  getMeeting: (id) => ipcRenderer.invoke('history:get', id),
+  listOpenTasks: () => ipcRenderer.invoke('history:tasks'),
+  setTaskDone: (id, index, done) => ipcRenderer.invoke('history:set-task', { id, index, done }),
+  summarizeMeeting: (id) => ipcRenderer.invoke('history:summarize', id),
+
+  // diversos
   getSettings: () => ipcRenderer.invoke('settings:get'),
   saveSettings: (patch) => ipcRenderer.invoke('settings:save', patch),
   openPath: (target) => ipcRenderer.invoke('open-path', target),

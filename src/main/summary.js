@@ -84,7 +84,7 @@ function taskLine(task) {
   const meta = [task.responsavel && `👤 ${task.responsavel}`, task.prazo && `📅 ${task.prazo}`]
     .filter(Boolean)
     .join(' · ');
-  return `- [ ] ${task.minha ? '**(minha)** ' : ''}${task.descricao}${meta ? ` — ${meta}` : ''}`;
+  return `- [${task.concluida ? 'x' : ' '}] ${task.minha ? '**(minha)** ' : ''}${task.descricao}${meta ? ` — ${meta}` : ''}`;
 }
 
 function renderMarkdown(summary, { startedAt, durationSec } = {}) {

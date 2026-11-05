@@ -9,7 +9,25 @@ App de menu bar para macOS (Electron) que **ouve a sua reunião** — seu microf
 - 💬 **O que foi discutido**, por tópico
 - ❓ **Perguntas em aberto**
 
-Tudo é salvo em `~/Documents/Meeting Notes/<data hora>/` (`resumo.md`, `resumo.json`, `transcricao.md`).
+## Histórico
+
+A janela do app é o seu arquivo de reuniões:
+
+- **Barra lateral** com todas as reuniões (Hoje, Ontem, Últimos 7 dias, por mês), mostrando duração e tarefas pendentes, com **busca** (<kbd>⌘</kbd><kbd>F</kbd>) em títulos, tarefas, pontos e tópicos.
+- **Reunião aberta**: resumo completo, aba com a transcrição com marcação de tempo, botões para copiar o resumo em Markdown e abrir a pasta.
+- **Minhas tarefas**: todas as tarefas pendentes de todas as reuniões num só lugar (filtro "Só as minhas"). Marcar o checkbox conclui a tarefa e salva no arquivo.
+- Reuniões cujo resumo falhou aparecem como "sem resumo", com o botão **Gerar resumo agora**.
+
+Com a janela aberta o app aparece no Dock e no <kbd>⌘</kbd><kbd>Tab</kbd>; fechada, ele continua só na menu bar.
+
+Os dados ficam em arquivos comuns, uma pasta por reunião em `~/Documents/Meeting Notes/<data hora>/`:
+
+| Arquivo | Conteúdo |
+| --- | --- |
+| `resumo.md` | o resumo em Markdown (tarefas concluídas viram `- [x]`) |
+| `resumo.json` | o resumo estruturado, que é o que a interface lê |
+| `transcricao.md` | a transcrição com marcação de tempo |
+| `meta.json` | início e duração |
 
 ## Como funciona
 
@@ -26,7 +44,7 @@ sistema ───┘                                         │
 
 - A gravação é dividida em segmentos de 5 minutos, transcritos **durante** a reunião. Ao parar, só falta o último trecho, então o resumo sai rápido mesmo em reuniões longas — e nenhum arquivo passa do limite de 25 MB da API.
 - O final de cada trecho é enviado como `prompt` da transcrição seguinte, para manter a continuidade.
-- Se um trecho falhar (3 tentativas com backoff), ele vira uma lacuna marcada na transcrição e o áudio é mantido em disco. Se o resumo falhar, a transcrição já está salva e há um botão "Tentar resumir de novo".
+- Se um trecho falhar (3 tentativas com backoff), ele vira uma lacuna marcada na transcrição e o áudio é mantido em disco. Se o resumo falhar, a transcrição já está salva e a reunião aparece no histórico com o botão "Gerar resumo agora".
 - A chave da OpenAI fica criptografada no Keychain (`safeStorage`) e nunca chega à interface.
 
 ## Instalação
@@ -92,6 +110,7 @@ npm test    # testes (inclui o pipeline completo contra um servidor fake da Open
 ```
 bin/meeting.js           comando de terminal (repassa a ação para a instância aberta)
 src/main/main.js         ciclo de vida, menu bar, atalho global, IPC
+src/main/history.js      histórico em disco: listar, abrir, concluir tarefas
 src/main/meeting.js      uma reunião: segmentos -> transcrição -> resumo -> arquivos
 src/main/openai.js       chamadas à API da OpenAI
 src/main/summary.js      JSON Schema do resumo, prompt e Markdown

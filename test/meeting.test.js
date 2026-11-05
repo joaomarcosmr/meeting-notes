@@ -74,8 +74,9 @@ test('reunião: transcreve segmentos em ordem, resume e salva os arquivos', asyn
   assert.match(chat.messages[1].content, /\[00:05:00\] fala do trecho 2/);
 
   assert.equal(result.summary.titulo, 'Daily do time');
+  assert.equal(result.id, path.basename(result.folder));
   const files = fs.readdirSync(result.folder).sort();
-  assert.deepEqual(files, ['resumo.json', 'resumo.md', 'transcricao.md']); // áudio apagado
+  assert.deepEqual(files, ['meta.json', 'resumo.json', 'resumo.md', 'transcricao.md']); // áudio apagado
   assert.match(fs.readFileSync(path.join(result.folder, 'resumo.md'), 'utf8'), /\*\*\(minha\)\*\* Preparar release notes/);
   assert.match(fs.readFileSync(path.join(result.folder, 'transcricao.md'), 'utf8'), /\[00:00:00\] fala do trecho 1/);
 });

@@ -5,19 +5,39 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createTranscriptionQueue } = require('./queue');
 const { joinSegments } = require('./transcript');
-const { renderMarkdown } = require('./summary');
 const { transcribeSegment, summarize } = require('./openai');
+const { saveMeta, saveSummary, saveTranscript, readTranscript } = require('./history');
 
 function folderStamp(date) {
   const pad = (n) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}h${pad(date.getMinutes())}`;
 }
 
+// Gera o resumo de uma pasta que já tem transcrição. Usado no fim da gravação e
+// para resumir de novo uma reunião antiga (ex.: o resumo falhou por falta de cota).
+async function summarizeFolder({ folder, settings, apiKey, meta }) {
+  const transcript = readTranscript(folder);
+  if (!transcript) throw new Error('Essa reunião não tem transcrição para resumir.');
+  const summary = await summarize({
+    apiKey,
+    model: settings.summaryModel,
+    transcript,
+    userName: settings.userName,
+    startedAt: meta.startedAt,
+  });
+  const markdown = saveSummary(folder, summary, meta);
+  return { id: path.basename(folder), summary, markdown, folder };
+}
+
 function createMeeting({ settings, apiKey, onProgress }) {
   const startedAt = new Date();
-  const folder = path.join(settings.notesDir, folderStamp(startedAt));
+  let folder = path.join(settings.notesDir, folderStamp(startedAt));
+  // Duas gravações no mesmo minuto não podem cair na mesma pasta.
+  for (let n = 2; fs.existsSync(folder); n++) folder = path.join(settings.notesDir, `${folderStamp(startedAt)} (${n})`);
   const audioDir = path.join(folder, 'audio');
   fs.mkdirSync(audioDir, { recursive: true });
+  const meta = { startedAt: startedAt.toISOString(), durationSec: null };
+  saveMeta(folder, meta);
 
   const queue = createTranscriptionQueue(
     (segment, previousText) =>
@@ -32,8 +52,7 @@ function createMeeting({ settings, apiKey, onProgress }) {
     { onProgress },
   );
 
-  let transcript = null;
-  let durationSec = 0;
+  let transcribed = false;
 
   function addSegment({ index, startSec, data }) {
     const file = path.join(audioDir, `parte-${String(index + 1).padStart(3, '0')}.webm`);
@@ -41,27 +60,17 @@ function createMeeting({ settings, apiKey, onProgress }) {
     queue.push({ index, startSec, file });
   }
 
-  async function buildSummary() {
-    const summary = await summarize({
-      apiKey,
-      model: settings.summaryModel,
-      transcript,
-      userName: settings.userName,
-      startedAt,
-    });
-    const markdown = renderMarkdown(summary, { startedAt, durationSec });
-    fs.writeFileSync(path.join(folder, 'resumo.md'), markdown);
-    fs.writeFileSync(path.join(folder, 'resumo.json'), JSON.stringify(summary, null, 2));
-    return { summary, markdown, folder };
-  }
-
   async function finish(totalDurationSec) {
-    durationSec = totalDurationSec;
+    meta.durationSec = Math.round(totalDurationSec);
+    saveMeta(folder, meta);
     const segments = await queue.drain();
-    if (!segments.length) throw new Error('Nenhum áudio foi gravado.');
+    if (!segments.length) {
+      fs.rmSync(folder, { recursive: true, force: true });
+      throw new Error('Nenhum áudio foi gravado.');
+    }
 
-    transcript = joinSegments(segments);
-    fs.writeFileSync(path.join(folder, 'transcricao.md'), `# Transcrição\n\n${transcript}\n`);
+    saveTranscript(folder, joinSegments(segments));
+    transcribed = true;
 
     // Só apaga o áudio quando tudo foi transcrito: se algo falhou, ele fica para reprocessar.
     if (!settings.keepAudio && segments.every((s) => !s.error)) {
@@ -70,16 +79,15 @@ function createMeeting({ settings, apiKey, onProgress }) {
     if (segments.every((s) => s.error)) {
       throw new Error(`Falha ao transcrever o áudio: ${segments[0].error}`);
     }
-    return buildSummary();
+    return summarizeFolder({ folder, settings, apiKey, meta });
   }
 
   // Se o resumo falhar (rede, chave, cota), a transcrição já está salva e dá para tentar de novo.
   function retrySummary() {
-    if (!transcript) throw new Error('Ainda não há transcrição para resumir.');
-    return buildSummary();
+    return summarizeFolder({ folder, settings, apiKey, meta });
   }
 
-  return { folder, startedAt, addSegment, finish, retrySummary, hasTranscript: () => Boolean(transcript) };
+  return { folder, startedAt, addSegment, finish, retrySummary, hasTranscript: () => transcribed };
 }
 
-module.exports = { createMeeting };
+module.exports = { createMeeting, summarizeFolder };

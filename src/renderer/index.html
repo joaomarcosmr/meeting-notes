@@ -10,18 +10,34 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="titlebar">
-      <span class="brand">Meeting Notes</span>
-      <button id="settings-button" class="icon-button" title="Configurações">⚙︎</button>
-    </header>
+    <aside class="sidebar">
+      <div class="drag-area"></div>
 
-    <div id="banner" class="banner" hidden></div>
+      <button id="record-button" class="record-cta">
+        <span class="dot"></span><span id="record-label">Gravar reunião</span>
+      </button>
+
+      <button id="nav-tasks" class="nav-item">
+        <span>✅ Minhas tarefas</span><span id="tasks-count" class="count"></span>
+      </button>
+
+      <input id="search" type="search" placeholder="Buscar reuniões  ⌘F" />
+
+      <nav id="meeting-list" class="meeting-list"></nav>
+
+      <footer class="sidebar-footer">
+        <button id="settings-button" class="link">⚙︎ Configurações</button>
+        <button id="folder-button" class="link">📁 Pasta</button>
+      </footer>
+    </aside>
 
     <main>
-      <section id="view-idle" class="view center">
-        <button id="record-button" class="record-button" title="Gravar reunião"><span></span></button>
-        <h1>Pronto para ouvir</h1>
-        <p class="muted">Clique, use <kbd id="shortcut-hint"></kbd> ou rode <code>meeting</code> no terminal.</p>
+      <div class="drag-area"></div>
+      <div id="banner" class="banner" hidden></div>
+
+      <section id="view-empty" class="view center">
+        <h1>Nenhuma reunião ainda</h1>
+        <p class="muted">Clique em <b>Gravar reunião</b>, use <kbd class="shortcut-hint"></kbd> ou rode <code>meeting</code> no terminal.</p>
       </section>
 
       <section id="view-recording" class="view center" hidden>
@@ -39,26 +55,42 @@
         <p id="progress" class="muted"></p>
       </section>
 
-      <section id="view-result" class="view" hidden>
-        <article id="result"></article>
-        <div class="actions">
-          <button id="copy-button">Copiar resumo</button>
-          <button id="folder-button">Abrir pasta</button>
-          <button id="new-button" class="primary">Nova gravação</button>
+      <section id="view-meeting" class="view" hidden>
+        <header class="detail-header">
+          <div>
+            <h1 id="meeting-title"></h1>
+            <p id="meeting-meta" class="muted small"></p>
+          </div>
+          <div class="actions">
+            <button id="copy-button">Copiar resumo</button>
+            <button id="meeting-folder-button">Abrir pasta</button>
+          </div>
+        </header>
+        <div class="tabs">
+          <button data-tab="summary" class="tab active">Resumo</button>
+          <button data-tab="transcript" class="tab">Transcrição</button>
         </div>
+        <article id="meeting-summary"></article>
+        <article id="meeting-transcript" hidden></article>
+      </section>
+
+      <section id="view-tasks" class="view" hidden>
+        <header class="detail-header">
+          <h1>Tarefas pendentes</h1>
+          <label class="check"><input id="only-mine" type="checkbox" checked /> Só as minhas</label>
+        </header>
+        <div id="tasks-list"></div>
       </section>
 
       <section id="view-error" class="view center" hidden>
         <h1>Algo deu errado</h1>
         <p id="error-message" class="muted"></p>
         <div class="actions">
-          <button id="retry-button" class="primary">Tentar resumir de novo</button>
-          <button id="error-folder-button">Abrir pasta</button>
           <button id="error-back-button">Voltar</button>
         </div>
       </section>
 
-      <section id="view-settings" class="view" hidden>
+      <section id="view-settings" class="view narrow" hidden>
         <h1>Configurações</h1>
         <p id="settings-reason" class="banner" hidden></p>
         <form id="settings-form">

@@ -6,7 +6,7 @@ const { app, safeStorage } = require('electron');
 const DEFAULTS = {
   userName: '',
   language: 'pt',
-  transcriptionModel: 'gpt-4o-transcribe',
+  transcriptionModel: 'gpt-4o-transcribe-diarize',
   summaryModel: 'gpt-5',
   captureSystemAudio: true,
   micDeviceId: 'default',
@@ -18,12 +18,21 @@ const DEFAULTS = {
 
 const file = () => path.join(app.getPath('userData'), 'settings.json');
 
+// v2: o modelo padrão de transcrição passou a ser o com diarização (quem falou o quê).
+// Quem salvou as configurações com o padrão antigo ganha o novo automaticamente.
+const SETTINGS_VERSION = 2;
+
 function readRaw() {
+  let raw;
   try {
-    return JSON.parse(fs.readFileSync(file(), 'utf8'));
+    raw = JSON.parse(fs.readFileSync(file(), 'utf8'));
   } catch {
     return {};
   }
+  if ((raw.settingsVersion || 1) < 2 && raw.transcriptionModel === 'gpt-4o-transcribe') {
+    delete raw.transcriptionModel;
+  }
+  return raw;
 }
 
 function writeRaw(data) {
@@ -41,7 +50,7 @@ function getSettings() {
 
 function saveSettings(patch) {
   const { apiKey, hasApiKey, ...rest } = patch;
-  const raw = { ...readRaw(), ...rest };
+  const raw = { ...readRaw(), ...rest, settingsVersion: SETTINGS_VERSION };
   if (apiKey) {
     if (!safeStorage.isEncryptionAvailable()) throw new Error('Criptografia do Keychain indisponível.');
     raw.encryptedApiKey = safeStorage.encryptString(apiKey.trim()).toString('base64');

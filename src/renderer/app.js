@@ -144,9 +144,13 @@ function renderMeeting(tab) {
   transcriptRoot.replaceChildren();
   if (!transcript) transcriptRoot.append(el('p', 'Sem transcrição.', 'muted'));
   for (const paragraph of (transcript || '').split(/\n{2,}/)) {
-    const match = /^\[(\d\d:\d\d:\d\d)\]\s*(.*)$/s.exec(paragraph);
+    const match = /^\[(\d\d:\d\d:\d\d)\]\s*(?:(Você|Participante(?: [A-Z]+)?|Pessoa [A-Z]+): )?(.*)$/s.exec(paragraph);
     const p = el('p');
-    if (match) p.append(el('span', match[1], 'stamp'), document.createTextNode(match[2]));
+    if (match) {
+      p.append(el('span', match[1], 'stamp'));
+      if (match[2]) p.append(el('b', `${match[2]}: `, match[2] === 'Você' ? 'speaker me' : 'speaker'));
+      p.append(document.createTextNode(match[3]));
+    }
     else p.textContent = paragraph;
     transcriptRoot.append(p);
   }
@@ -176,7 +180,7 @@ function section(title, items, render = (item) => el('li', item)) {
   return wrap;
 }
 
-function taskItem(task, onToggle, extra) {
+function taskItem(task, onChange) {
   const li = el('li', undefined, 'task');
   li.classList.toggle('mine', Boolean(task.minha));
   li.classList.toggle('done', Boolean(task.concluida));
@@ -184,20 +188,23 @@ function taskItem(task, onToggle, extra) {
   const box = el('input');
   box.type = 'checkbox';
   box.checked = Boolean(task.concluida);
-  box.addEventListener('change', () => onToggle(box.checked));
+  box.addEventListener('change', () => onChange({ concluida: box.checked }));
   const body = el('div');
   body.append(el('span', task.descricao));
-  const meta = [task.minha && 'Minha', task.responsavel && `👤 ${task.responsavel}`, task.prazo && `📅 ${task.prazo}`];
-  if (extra) meta.push(extra);
-  const metaText = meta.filter(Boolean).join(' · ');
-  if (metaText) body.append(el('small', metaText));
+  const meta = [task.responsavel && `👤 ${task.responsavel}`, task.prazo && `📅 ${task.prazo}`].filter(Boolean).join(' · ');
+  if (meta) body.append(el('small', meta));
   label.append(box, body);
-  li.append(label);
+
+  // A IA pode errar o dono da tarefa: um clique corrige.
+  const mine = el('button', task.minha ? 'Minha' : 'É minha?', 'mine-toggle');
+  mine.title = task.minha ? 'Clique se essa tarefa não é sua' : 'Clique para marcar como sua';
+  mine.addEventListener('click', () => onChange({ minha: !task.minha }));
+  li.append(label, mine);
   return li;
 }
 
-async function toggleTask(id, index, done) {
-  const updated = await window.api.setTaskDone(id, index, done);
+async function changeTask(id, index, patch) {
+  const updated = await window.api.updateTask(id, index, patch);
   if (selected?.id === id) {
     selected = updated;
     renderMeeting('summary');
@@ -213,7 +220,7 @@ function renderSummary(root, summary) {
     .map((task, index) => ({ task, index }))
     .sort((a, b) => Number(Boolean(a.task.concluida)) - Number(Boolean(b.task.concluida)) || Number(b.task.minha) - Number(a.task.minha));
   root.append(
-    section('✅ Tarefas', tasks, ({ task, index }) => taskItem(task, (done) => toggleTask(selected.id, index, done))),
+    section('✅ Tarefas', tasks, ({ task, index }) => taskItem(task, (patch) => changeTask(selected.id, index, patch))),
   );
   root.append(section('⭐ Pontos importantes', summary.pontos_importantes));
   root.append(section('💡 O que você deve saber', summary.o_que_voce_deve_saber));
@@ -261,7 +268,7 @@ async function renderTasks() {
       list = el('ul');
       root.append(heading, list);
     }
-    list.append(taskItem(task, (done) => toggleTask(task.meetingId, task.index, done)));
+    list.append(taskItem(task, (patch) => changeTask(task.meetingId, task.index, patch)));
   }
 }
 

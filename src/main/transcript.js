@@ -6,14 +6,63 @@ function formatClock(totalSeconds) {
   return `${hh}:${mm}:${ss}`;
 }
 
-// Junta os segmentos transcritos em um texto único com marcação de tempo,
-// sinalizando trechos que falharam para a IA (e você) saberem que há lacunas.
-function joinSegments(segments) {
-  return segments
-    .map((segment) => {
-      const stamp = `[${formatClock(segment.startSec)}]`;
-      if (segment.error) return `${stamp} (trecho não transcrito: ${segment.error})`;
-      return `${stamp} ${segment.text.trim()}`;
+const SOURCE_NAMES = { mic: 'microfone', system: 'áudio do sistema' };
+
+// Quem falou, a partir da trilha de origem:
+// - com áudio do sistema, o microfone é só o usuário ("Você") e o sistema traz
+//   os outros, separados pela diarização ("Participante A", "Participante B"...);
+// - sem áudio do sistema (reunião presencial, permissão negada), o microfone tem
+//   todo mundo e não dá para saber quem é o usuário ("Pessoa A"...).
+function speakerLabel(source, speaker, hasSystemAudio) {
+  if (source === 'system') return speaker ? `Participante ${speaker}` : 'Participante';
+  if (hasSystemAudio) return 'Você';
+  return speaker ? `Pessoa ${speaker}` : null;
+}
+
+// Junta os trechos transcritos das duas trilhas em uma conversa só, em ordem de
+// tempo, marcando lacunas para a IA (e você) saberem que falta algo.
+function buildTranscript(segments) {
+  const hasSystemAudio = segments.some((s) => s.source === 'system');
+  const lines = [];
+
+  for (const segment of segments) {
+    if (segment.error) {
+      lines.push({
+        start: segment.startSec,
+        gap: `(trecho do ${SOURCE_NAMES[segment.source] || 'áudio'} não transcrito: ${segment.error})`,
+      });
+      continue;
+    }
+    for (const u of segment.utterances) {
+      const text = u.text.trim();
+      if (!text) continue;
+      lines.push({
+        start: segment.startSec + (u.start || 0),
+        end: segment.startSec + (u.end ?? u.start ?? 0),
+        speaker: speakerLabel(segment.source, u.speaker, hasSystemAudio),
+        text,
+      });
+    }
+  }
+  lines.sort((a, b) => a.start - b.start);
+
+  // Falas seguidas da mesma pessoa viram um parágrafo só.
+  const merged = [];
+  for (const line of lines) {
+    const last = merged[merged.length - 1];
+    if (last && !last.gap && !line.gap && last.speaker === line.speaker && line.start - last.end < 2) {
+      last.text += ` ${line.text}`;
+      last.end = line.end;
+    } else {
+      merged.push({ ...line });
+    }
+  }
+
+  return merged
+    .map((line) => {
+      const stamp = `[${formatClock(line.start)}]`;
+      if (line.gap) return `${stamp} ${line.gap}`;
+      return line.speaker ? `${stamp} ${line.speaker}: ${line.text}` : `${stamp} ${line.text}`;
     })
     .join('\n\n');
 }
@@ -24,4 +73,4 @@ function tailForPrompt(text, maxChars = 400) {
   return text.length <= maxChars ? text : text.slice(-maxChars);
 }
 
-module.exports = { formatClock, joinSegments, tailForPrompt };
+module.exports = { formatClock, speakerLabel, buildTranscript, tailForPrompt };

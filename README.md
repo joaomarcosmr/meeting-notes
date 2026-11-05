@@ -32,18 +32,32 @@ Os dados ficam em arquivos comuns, uma pasta por reunião em `~/Documents/Meetin
 ## Como funciona
 
 ```
-microfone ─┐
-           ├─ mix (Web Audio) ─ MediaRecorder ─ segmentos .webm de 5 min
-sistema ───┘                                         │
- (CoreAudio Tap)                                     ▼
-                                   gpt-4o-transcribe (enquanto a reunião acontece)
-                                                     │
-                                                     ▼
-                         gpt-5 + Structured Outputs (JSON Schema) ─ resumo.md
+microfone (você) ──── MediaRecorder ─┐  segmentos .webm de 5 min,
+sistema (os outros) ─ MediaRecorder ─┘  uma trilha para cada
+ (CoreAudio Tap)                        │
+                                        ▼
+            gpt-4o-transcribe-diarize (enquanto a reunião acontece)
+                                        │
+                                        ▼
+   [00:03:12] Participante A: quem prepara as release notes?
+   [00:03:15] Você: deixa comigo, eu preparo até sexta
+                                        │
+                                        ▼
+            gpt-5 + Structured Outputs (JSON Schema) ─ resumo.md
 ```
 
+### Quem disse o quê
+
+O microfone e o áudio do sistema são gravados em **trilhas separadas**. Tudo que vem do microfone é **"Você"**; o áudio do sistema passa pela diarização do `gpt-4o-transcribe-diarize`, que separa os outros em **"Participante A", "Participante B"**… Assim a IA sabe que um "eu faço" seu é tarefa sua, e marca como **minha** — é isso que alimenta a aba "Minhas tarefas".
+
+- **Use fone de ouvido.** Sem ele, o microfone capta a voz dos outros saindo da caixa de som e ela aparece também como "Você" (o prompt instrui a IA a tratar falas repetidas como eco, mas o fone resolve de vez).
+- As letras dos participantes valem dentro de cada trecho de 5 minutos; a IA é instruída a não usá-las para identificar alguém ao longo da reunião inteira.
+- Sem áudio do sistema (reunião presencial, permissão negada), tudo vem do microfone e as pessoas aparecem como "Pessoa A", "Pessoa B"…, sem presumir quem é você.
+- Como são duas trilhas com a duração inteira da reunião, a transcrição custa cerca de 2× o de uma trilha só.
+- A IA errou o dono? Cada tarefa tem o botão **"É minha?"** para corrigir com um clique.
+
 - A gravação é dividida em segmentos de 5 minutos, transcritos **durante** a reunião. Ao parar, só falta o último trecho, então o resumo sai rápido mesmo em reuniões longas — e nenhum arquivo passa do limite de 25 MB da API.
-- O final de cada trecho é enviado como `prompt` da transcrição seguinte, para manter a continuidade.
+- Com um modelo sem diarização (ex.: `gpt-4o-transcribe`), o final de cada trecho vira `prompt` do seguinte, para manter a continuidade.
 - Se um trecho falhar (3 tentativas com backoff), ele vira uma lacuna marcada na transcrição e o áudio é mantido em disco. Se o resumo falhar, a transcrição já está salva e a reunião aparece no histórico com o botão "Gerar resumo agora".
 - A chave da OpenAI fica criptografada no Keychain (`safeStorage`) e nunca chega à interface.
 
@@ -93,7 +107,7 @@ Dica: dá para disparar o `meeting` pelo Raycast/Alfred ou por um atalho do app 
 
 | Campo | Padrão |
 | --- | --- |
-| Modelo de transcrição | `gpt-4o-transcribe` (também funciona com `gpt-4o-mini-transcribe` ou `whisper-1`) |
+| Modelo de transcrição | `gpt-4o-transcribe-diarize` (separa quem fala). `gpt-4o-transcribe` e `gpt-4o-mini-transcribe` também funcionam, mas sem identificar os participantes |
 | Modelo do resumo | `gpt-5` (qualquer modelo com Structured Outputs) |
 | Idioma | `pt` |
 | Áudio do sistema | ligado |

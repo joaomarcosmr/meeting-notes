@@ -119,12 +119,17 @@ function getMeeting(notesDir, id) {
   };
 }
 
-function setTaskDone(notesDir, id, index, done) {
+// Mudanças feitas na interface: concluir a tarefa ou corrigir se ela é sua.
+const EDITABLE_TASK_FIELDS = ['concluida', 'minha'];
+
+function updateTask(notesDir, id, index, patch) {
   const folder = meetingDir(notesDir, id);
   const summary = readJson(path.join(folder, 'resumo.json'));
   const task = summary?.tarefas?.[index];
   if (!task) throw new Error('Tarefa não encontrada.');
-  task.concluida = Boolean(done);
+  for (const field of EDITABLE_TASK_FIELDS) {
+    if (field in patch) task[field] = Boolean(patch[field]);
+  }
   saveSummary(folder, summary);
   return getMeeting(notesDir, id);
 }
@@ -149,6 +154,6 @@ module.exports = {
   readTranscript,
   listMeetings,
   getMeeting,
-  setTaskDone,
+  updateTask,
   listOpenTasks,
 };

@@ -1,6 +1,8 @@
-// Captura microfone + áudio do sistema, mistura em uma trilha só e grava em
-// segmentos independentes (cada um é um .webm completo, com cabeçalho próprio),
-// para que possam ser transcritos enquanto a reunião ainda acontece.
+// Captura microfone e áudio do sistema e grava cada um na sua trilha: o
+// microfone é você, o sistema são os outros, e é isso que permite saber quem
+// disse o quê. As duas trilhas são cortadas juntas em segmentos independentes
+// (cada um é um .webm completo, com cabeçalho próprio), para que possam ser
+// transcritos enquanto a reunião ainda acontece.
 
 const MIME = 'audio/webm;codecs=opus';
 
@@ -42,39 +44,44 @@ export async function createRecorder({ segmentMinutes, captureSystemAudio, micDe
     }
   }
 
+  // O AudioContext serve só para o medidor de volume; a gravação usa as trilhas originais.
   const context = new AudioContext();
-  const destination = context.createMediaStreamDestination();
   const analyser = context.createAnalyser();
   analyser.fftSize = 512;
-  for (const stream of [mic, display].filter(Boolean)) {
-    const source = context.createMediaStreamSource(new MediaStream(stream.getAudioTracks()));
-    source.connect(destination);
-    source.connect(analyser);
-  }
+  const lanes = [
+    { source: 'mic', stream: new MediaStream(mic.getAudioTracks()) },
+    display && { source: 'system', stream: new MediaStream(display.getAudioTracks()) },
+  ].filter(Boolean);
+  for (const lane of lanes) context.createMediaStreamSource(lane.stream).connect(analyser);
 
   const segmentMs = segmentMinutes * 60 * 1000;
   const startedAt = performance.now();
   let index = 0;
-  let current = null;
+  let current = [];
   let stopping = false;
   let timer = null;
   const pending = [];
 
-  function startSegment() {
-    const recorder = new MediaRecorder(destination.stream, { mimeType: MIME, audioBitsPerSecond: 32000 });
+  function recordLane(lane, segment) {
+    const recorder = new MediaRecorder(lane.stream, { mimeType: MIME, audioBitsPerSecond: 32000 });
     const chunks = [];
-    const segment = { index: index++, startSec: (performance.now() - startedAt) / 1000 };
     recorder.ondataavailable = (event) => event.data.size && chunks.push(event.data);
-    const finished = new Promise((resolve) => {
-      recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: MIME });
-        if (blob.size) await onSegment({ ...segment, data: await blob.arrayBuffer() });
-        resolve();
-      };
-    });
-    pending.push(finished);
+    pending.push(
+      new Promise((resolve) => {
+        recorder.onstop = async () => {
+          const blob = new Blob(chunks, { type: MIME });
+          if (blob.size) await onSegment({ ...segment, source: lane.source, data: await blob.arrayBuffer() });
+          resolve();
+        };
+      }),
+    );
     recorder.start(1000);
-    current = recorder;
+    return recorder;
+  }
+
+  function startSegment() {
+    const segment = { index: index++, startSec: (performance.now() - startedAt) / 1000 };
+    current = lanes.map((lane) => recordLane(lane, segment));
     timer = setTimeout(rotate, segmentMs);
   }
 
@@ -82,7 +89,7 @@ export async function createRecorder({ segmentMinutes, captureSystemAudio, micDe
     if (stopping) return;
     const previous = current;
     startSegment(); // começa o próximo antes de fechar o anterior: sem buraco entre segmentos
-    previous.stop();
+    previous.forEach((recorder) => recorder.stop());
   }
 
   function level() {
@@ -96,7 +103,7 @@ export async function createRecorder({ segmentMinutes, captureSystemAudio, micDe
   async function stop() {
     stopping = true;
     clearTimeout(timer);
-    if (current.state !== 'inactive') current.stop();
+    current.filter((r) => r.state !== 'inactive').forEach((r) => r.stop());
     await Promise.all(pending);
     [mic, display].filter(Boolean).forEach((s) => s.getTracks().forEach((t) => t.stop()));
     await context.close();

@@ -4,7 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { createTranscriptionQueue } = require('./queue');
-const { joinSegments } = require('./transcript');
+const { buildTranscript } = require('./transcript');
 const { transcribeSegment, summarize } = require('./openai');
 const { saveMeta, saveSummary, saveTranscript, readTranscript } = require('./history');
 
@@ -40,24 +40,25 @@ function createMeeting({ settings, apiKey, onProgress }) {
   saveMeta(folder, meta);
 
   const queue = createTranscriptionQueue(
-    (segment, previousText) =>
+    (segment, previous) =>
       transcribeSegment({
         apiKey,
         model: settings.transcriptionModel,
         language: settings.language,
         audio: fs.readFileSync(segment.file),
         fileName: path.basename(segment.file),
-        previousText,
+        previousText: previous?.utterances.map((u) => u.text).join(' '),
       }),
     { onProgress },
   );
 
   let transcribed = false;
 
-  function addSegment({ index, startSec, data }) {
-    const file = path.join(audioDir, `parte-${String(index + 1).padStart(3, '0')}.webm`);
+  // Cada trecho chega duas vezes: uma do microfone (você) e outra do áudio do sistema (os outros).
+  function addSegment({ index, startSec, source = 'mic', data }) {
+    const file = path.join(audioDir, `parte-${String(index + 1).padStart(3, '0')}-${source}.webm`);
     fs.writeFileSync(file, Buffer.from(data));
-    queue.push({ index, startSec, file });
+    queue.push({ index, startSec, source, file });
   }
 
   async function finish(totalDurationSec) {
@@ -69,7 +70,7 @@ function createMeeting({ settings, apiKey, onProgress }) {
       throw new Error('Nenhum áudio foi gravado.');
     }
 
-    saveTranscript(folder, joinSegments(segments));
+    saveTranscript(folder, buildTranscript(segments));
     transcribed = true;
 
     // Só apaga o áudio quando tudo foi transcrito: se algo falhou, ele fica para reprocessar.

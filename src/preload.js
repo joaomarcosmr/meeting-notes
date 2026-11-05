@@ -28,7 +28,7 @@ contextBridge.exposeInMainWorld('api', {
   listMeetings: () => ipcRenderer.invoke('history:list'),
   getMeeting: (id) => ipcRenderer.invoke('history:get', id),
   listOpenTasks: () => ipcRenderer.invoke('history:tasks'),
-  setTaskDone: (id, index, done) => ipcRenderer.invoke('history:set-task', { id, index, done }),
+  updateTask: (id, index, patch) => ipcRenderer.invoke('history:update-task', { id, index, patch }),
   summarizeMeeting: (id) => ipcRenderer.invoke('history:summarize', id),
 
   // diversos

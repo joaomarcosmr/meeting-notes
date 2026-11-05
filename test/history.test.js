@@ -49,7 +49,7 @@ test('history: lista da mais nova para a mais antiga e ignora gravação em anda
 
 test('history: marcar tarefa atualiza json, markdown e contadores', () => {
   const notesDir = fixture();
-  const meeting = history.setTaskDone(notesDir, 'nova', 1, true);
+  const meeting = history.updateTask(notesDir, 'nova', 1, { concluida: true });
   assert.equal(meeting.summary.tarefas[1].concluida, true);
   assert.match(meeting.markdown, /- \[x\] \*\*\(minha\)\*\* Subir deploy/);
   assert.equal(history.listMeetings(notesDir)[0].myTasksOpen, 0);
@@ -66,5 +66,13 @@ test('history: lê transcrição sem o cabeçalho e recusa ids fora da pasta', (
   assert.equal(history.getMeeting(notesDir, 'sem-resumo').transcript, '[00:00:00] conversa');
   assert.equal(history.getMeeting(notesDir, 'sem-resumo').summary, null);
   assert.throws(() => history.getMeeting(notesDir, '../etc'), /inválida/);
-  assert.throws(() => history.setTaskDone(notesDir, 'nova', 9, true), /não encontrada/);
+  assert.throws(() => history.updateTask(notesDir, 'nova', 9, { concluida: true }), /não encontrada/);
+});
+
+test('history: corrigir "é minha" à mão e ignorar campos não editáveis', () => {
+  const notesDir = fixture();
+  const meeting = history.updateTask(notesDir, 'nova', 0, { minha: true, descricao: 'hack' });
+  assert.equal(meeting.summary.tarefas[0].minha, true);
+  assert.equal(meeting.summary.tarefas[0].descricao, 'Revisar PR');
+  assert.equal(history.listMeetings(notesDir)[0].myTasksOpen, 2);
 });

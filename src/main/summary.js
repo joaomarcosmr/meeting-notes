@@ -51,22 +51,23 @@ const SUMMARY_SCHEMA = {
 };
 
 function buildMessages(transcript, { userName, startedAt } = {}) {
-  const who = userName
-    ? `O usuário do app se chama "${userName}". Marque "minha": true nas tarefas atribuídas a ele (ou a "eu"/"você" quando for claramente ele).`
-    : 'Não sabemos o nome do usuário do app; marque "minha": true apenas quando a tarefa for claramente de quem gravou a reunião.';
-
+  const name = userName ? ` (${userName})` : '';
   const system = [
     'Você é um assistente que transforma transcrições de reuniões em notas objetivas, em português do Brasil.',
-    'A transcrição foi gerada automaticamente: pode ter erros, falas misturadas e não identifica quem fala.',
+    'A transcrição foi gerada automaticamente e pode ter erros. Cada fala vem com quem falou:',
+    `- "Você" é o usuário do app${name}: é o microfone dele, então tudo que "Você" diz foi dito por ele.`,
+    '- "Participante A", "Participante B"... são as outras pessoas da call. As letras são atribuídas a cada bloco de 5 minutos e podem mudar entre blocos: use-as para separar falas próximas, não para identificar alguém ao longo da reunião inteira.',
+    '- "Pessoa A", "Pessoa B"... aparecem quando só o microfone foi gravado: aí não se sabe qual delas é o usuário.',
+    '- Se "Você" repete quase igual a fala de um participante no mesmo instante, é eco da caixa de som captado pelo microfone: atribua a fala ao participante.',
     'Regras:',
     '- Escreva bullets curtos e concretos; nada de enrolação.',
-    '- "tarefas": só o que alguém se comprometeu ou foi pedido a fazer. Inclua responsável e prazo quando mencionados, senão null.',
+    '- "tarefas": só o que alguém se comprometeu ou foi pedido a fazer. Inclua responsável e prazo quando mencionados, senão null. Use "Você" como responsável quando for o usuário.',
+    `- "minha": true quando a tarefa é do usuário: "Você" se comprometeu ("eu faço", "deixa comigo", "vou ver isso"), aceitou um pedido, ou alguém atribuiu a ele${userName ? ` (pelo nome "${userName}" ou falando diretamente com ele)` : ''}.`,
     '- "decisoes": o que foi efetivamente decidido/acordado.',
     '- "pontos_importantes": números, riscos, mudanças, dependências e informações que não podem se perder.',
     '- "o_que_voce_deve_saber": contexto que o usuário precisa para agir depois da reunião (impactos para ele, alertas, próximos passos dele).',
     '- "perguntas_em_aberto": dúvidas levantadas que ficaram sem resposta.',
     '- Nunca invente informação que não está na transcrição. Se uma seção não tiver conteúdo, deixe a lista vazia.',
-    `- ${who}`,
   ].join('\n');
 
   const when = startedAt ? `Data da reunião: ${new Date(startedAt).toLocaleString('pt-BR')}\n\n` : '';

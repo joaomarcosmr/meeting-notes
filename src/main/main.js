@@ -185,8 +185,8 @@ ipcMain.handle('history:summarize', (_event, id) => {
 ipcMain.handle('history:list', () => history.listMeetings(getSettings().notesDir));
 ipcMain.handle('history:get', (_event, id) => history.getMeeting(getSettings().notesDir, id));
 ipcMain.handle('history:tasks', () => history.listOpenTasks(getSettings().notesDir));
-ipcMain.handle('history:set-task', (_event, { id, index, done }) =>
-  history.setTaskDone(getSettings().notesDir, id, index, done),
+ipcMain.handle('history:update-task', (_event, { id, index, patch }) =>
+  history.updateTask(getSettings().notesDir, id, index, patch),
 );
 
 ipcMain.handle('toggle', () => toggleRecording());

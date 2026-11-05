@@ -230,10 +230,26 @@ ul:has(> .task) { padding-left: 0; }
 }
 
 .task.mine { background: var(--mine); }
-.task label { display: flex; gap: 10px; align-items: flex-start; padding: 8px 12px; cursor: pointer; }
+.task { display: flex; align-items: center; }
+.task label { flex: 1; display: flex; gap: 10px; align-items: flex-start; padding: 8px 12px; cursor: pointer; }
 .task input { margin-top: 3px; }
 .task small { display: block; color: var(--muted); margin-top: 2px; }
 .task.done { opacity: 0.55; }
+
+.mine-toggle {
+  margin-right: 10px;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 11px;
+  color: var(--muted);
+  background: transparent;
+  white-space: nowrap;
+}
+
+.task.mine .mine-toggle { color: var(--text); border-color: var(--warn); font-weight: 600; }
+
+.speaker { font-weight: 600; color: var(--muted); }
+.speaker.me { color: var(--accent); }
 .task.done span { text-decoration: line-through; }
 
 .task-group {

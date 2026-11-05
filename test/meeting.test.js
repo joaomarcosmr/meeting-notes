@@ -25,7 +25,16 @@ function startFakeOpenAI() {
     req.on('end', () => {
       const body = Buffer.concat(chunks).toString('utf8');
       requests.push({ url: req.url, body });
-      if (req.url.endsWith('/audio/transcriptions')) {
+      if (req.url.endsWith('/audio/transcriptions') && body.includes('diarized_json')) {
+        const fromMic = body.includes('-mic.webm');
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({
+          task: 'transcribe', duration: 10, text: '',
+          segments: fromMic
+            ? [{ id: '1', type: 'transcript.text.segment', speaker: 'A', start: 4, end: 6, text: 'Deixa comigo, eu preparo.' }]
+            : [{ id: '1', type: 'transcript.text.segment', speaker: 'A', start: 1, end: 3, text: 'Quem prepara as release notes?' }],
+        }));
+      } else if (req.url.endsWith('/audio/transcriptions')) {
         const n = requests.filter((r) => r.url.endsWith('/audio/transcriptions')).length;
         res.writeHead(200, { 'content-type': 'text/plain' });
         res.end(`fala do trecho ${n}`);
@@ -40,6 +49,37 @@ function startFakeOpenAI() {
   });
   return new Promise((resolve) => server.listen(0, () => resolve({ server, requests })));
 }
+
+test('reunião: com diarização, microfone vira "Você" e sistema vira participante', async () => {
+  const { server, requests } = await startFakeOpenAI();
+  process.env.OPENAI_BASE_URL = `http://127.0.0.1:${server.address().port}/v1`;
+  const { createMeeting } = require('../src/main/meeting');
+
+  const notesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'meeting-notes-'));
+  const meeting = createMeeting({
+    settings: {
+      notesDir, language: 'pt', transcriptionModel: 'gpt-4o-transcribe-diarize',
+      summaryModel: 'gpt-5', userName: 'João', keepAudio: false,
+    },
+    apiKey: 'sk-test',
+    onProgress: () => {},
+  });
+  meeting.addSegment({ index: 0, startSec: 0, source: 'mic', data: new Uint8Array([1]).buffer });
+  meeting.addSegment({ index: 0, startSec: 0, source: 'system', data: new Uint8Array([2]).buffer });
+  const result = await meeting.finish(10);
+  server.close();
+
+  const transcriptions = requests.filter((r) => r.url.endsWith('/audio/transcriptions'));
+  assert.equal(transcriptions.length, 2);
+  for (const t of transcriptions) {
+    assert.match(t.body, /name="chunking_strategy"\r\n\r\nauto/);
+    assert.doesNotMatch(t.body, /name="prompt"/); // diarização não aceita prompt
+  }
+  const chat = JSON.parse(requests.find((r) => r.url.endsWith('/chat/completions')).body);
+  assert.match(chat.messages[1].content,
+    /\[00:00:01\] Participante A: Quem prepara as release notes\?\n\n\[00:00:04\] Você: Deixa comigo, eu preparo\./);
+  assert.match(fs.readFileSync(path.join(result.folder, 'transcricao.md'), 'utf8'), /Você: Deixa comigo/);
+});
 
 test('reunião: transcreve segmentos em ordem, resume e salva os arquivos', async () => {
   const { server, requests } = await startFakeOpenAI();
